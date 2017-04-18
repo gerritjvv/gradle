@@ -34,7 +34,7 @@ import org.gradle.internal.component.model.DefaultVariantMetadata;
 import org.gradle.internal.component.model.VariantMetadata;
 import org.gradle.internal.id.IdGenerator;
 import org.gradle.internal.id.LongIdGenerator;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.resolve.resolver.ArtifactResolver;
 import org.gradle.internal.resolve.result.BuildableComponentArtifactsResolveResult;
 import org.gradle.internal.resolve.result.DefaultBuildableComponentArtifactsResolveResult;

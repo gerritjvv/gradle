@@ -21,8 +21,9 @@ import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.internal.Actions;
 import org.gradle.internal.operations.BuildOperationContext;
-import org.gradle.internal.progress.BuildOperationDetails;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.RunnableBuildOperation;
+import org.gradle.internal.progress.BuildOperationDescriptor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.util.ConfigureUtil;
 
 import java.util.Collections;
@@ -33,14 +34,14 @@ public class BuildOperationProjectConfigurator implements ProjectConfigurator {
     private final static String SUBPROJECTS = "subprojects";
     private final static String ROOTPROJECT = "rootProject";
 
-    private final static BuildOperationDetails ALLPROJECTS_DETAILS = computeConfigurationBlockBuildOperationDetails(ALLPROJECTS);
-    private final static BuildOperationDetails SUBPROJECTS_DETAILS = computeConfigurationBlockBuildOperationDetails(SUBPROJECTS);
-    private final static BuildOperationDetails ROOT_PROJECT_DETAILS = computeConfigurationBlockBuildOperationDetails(ROOTPROJECT);
+    private final static BuildOperationDescriptor.Builder ALLPROJECTS_DETAILS = computeConfigurationBlockBuildOperationDetails(ALLPROJECTS);
+    private final static BuildOperationDescriptor.Builder SUBPROJECTS_DETAILS = computeConfigurationBlockBuildOperationDetails(SUBPROJECTS);
+    private final static BuildOperationDescriptor.Builder ROOT_PROJECT_DETAILS = computeConfigurationBlockBuildOperationDetails(ROOTPROJECT);
 
     private final BuildOperationExecutor buildOperationExecutor;
 
-    private static BuildOperationDetails computeConfigurationBlockBuildOperationDetails(String configurationBlockName) {
-        return BuildOperationDetails.displayName("Executing '" + configurationBlockName + " {}' action").name(configurationBlockName).build();
+    private static BuildOperationDescriptor.Builder computeConfigurationBlockBuildOperationDetails(String configurationBlockName) {
+        return BuildOperationDescriptor.displayName("Executing '" + configurationBlockName + " {}' action").name(configurationBlockName);
     }
 
     public BuildOperationProjectConfigurator(BuildOperationExecutor buildOperationExecutor) {
@@ -60,9 +61,8 @@ public class BuildOperationProjectConfigurator implements ProjectConfigurator {
     }
 
     @Override
-    public Project projectBuildOperationAction(Project project, Action<BuildOperationContext> configureAction) {
-        runBuildOperation(computeProjectBuildOperationDetails(project), configureAction);
-        return project;
+    public void projectBuildOperation(ConfigureProjectBuildOperation configureProjectBuildOperation) {
+        buildOperationExecutor.run(configureProjectBuildOperation);
     }
 
     @Override
@@ -91,56 +91,54 @@ public class BuildOperationProjectConfigurator implements ProjectConfigurator {
         return project;
     }
 
-    public void runBlockConfigureClosure(BuildOperationDetails details, final Iterable<Project> projects, final Closure<? super Project> configureClosure) {
-        Action<BuildOperationContext> buildOperationAction = new Action<BuildOperationContext>() {
+    private void runBlockConfigureClosure(final BuildOperationDescriptor.Builder details, final Iterable<Project> projects, final Closure<? super Project> configureClosure) {
+        buildOperationExecutor.run(new RunnableBuildOperation() {
             @Override
-            public void execute(BuildOperationContext buildOperationContext) {
+            public BuildOperationDescriptor.Builder description() {
+                return details;
+            }
+
+            @Override
+            public void run(BuildOperationContext context) {
                 for (Project project : projects) {
                     runProjectConfigureClosure(project, configureClosure);
                 }
             }
-        };
-        runBuildOperation(details, buildOperationAction);
+        });
     }
 
-    public void runBlockConfigureAction(BuildOperationDetails details, final Iterable<Project> projects, final Action<? super Project> configureAction) {
-        Action<BuildOperationContext> buildOperationAction = new Action<BuildOperationContext>() {
+    private void runBlockConfigureAction(final BuildOperationDescriptor.Builder details, final Iterable<Project> projects, final Action<? super Project> configureAction) {
+        buildOperationExecutor.run(new RunnableBuildOperation() {
             @Override
-            public void execute(BuildOperationContext buildOperationContext) {
+            public BuildOperationDescriptor.Builder description() {
+                return details;
+            }
+
+            @Override
+            public void run(BuildOperationContext context) {
                 for (Project project : projects) {
                     runProjectConfigureAction(project, configureAction);
                 }
             }
-        };
-        runBuildOperation(details, buildOperationAction);
+        });
     }
 
     private void runProjectConfigureClosure(final Project project, final Closure<? super Project> configureClosure) {
-        Action<BuildOperationContext> buildOperationAction = new Action<BuildOperationContext>() {
+        buildOperationExecutor.run(new ConfigureProjectBuildOperation(project) {
+
             @Override
-            public void execute(BuildOperationContext buildOperationContext) {
+            public void run(BuildOperationContext context) {
                 ConfigureUtil.configure(configureClosure, project);
             }
-        };
-        runBuildOperation(computeProjectBuildOperationDetails(project), buildOperationAction);
+        });
     }
 
     private void runProjectConfigureAction(final Project project, final Action<? super Project> configureAction) {
-        Action<BuildOperationContext> buildOperationAction = new Action<BuildOperationContext>() {
+        buildOperationExecutor.run(new ConfigureProjectBuildOperation(project) {
             @Override
-            public void execute(BuildOperationContext buildOperationContext) {
+            public void run(BuildOperationContext context) {
                 Actions.with(project, configureAction);
             }
-        };
-        runBuildOperation(computeProjectBuildOperationDetails(project), buildOperationAction);
-    }
-
-    private void runBuildOperation(BuildOperationDetails details, Action<? super BuildOperationContext> buildOperationAction) {
-        buildOperationExecutor.run(details, buildOperationAction);
-    }
-
-    private BuildOperationDetails computeProjectBuildOperationDetails(Project project) {
-        String name = "Configure project " + ((ProjectInternal) project).getIdentityPath().toString();
-        return BuildOperationDetails.displayName(name).build();
+        });
     }
 }

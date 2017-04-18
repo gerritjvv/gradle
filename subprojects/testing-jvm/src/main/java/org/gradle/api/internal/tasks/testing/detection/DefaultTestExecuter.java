@@ -34,7 +34,7 @@ import org.gradle.api.tasks.testing.Test;
 import org.gradle.internal.Factory;
 import org.gradle.internal.actor.ActorFactory;
 import org.gradle.internal.work.WorkerLeaseRegistry;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.time.TrueTimeProvider;
 import org.gradle.process.internal.worker.WorkerProcessFactory;
 
@@ -102,7 +102,7 @@ public class DefaultTestExecuter implements TestExecuter {
             detector = new DefaultTestClassScanner(testClassFiles, null, processor);
         }
 
-        final Object testTaskOperationId = buildOperationExecutor.getCurrentOperation().getParentId();
+        final Object testTaskOperationId = buildOperationExecutor.getCurrentOperation().getDescription().getParentId();
 
         new TestMainAction(detector, processor, testResultProcessor, new TrueTimeProvider(), testTaskOperationId, testTask.getPath(), "Gradle Test Run " + testTask.getIdentityPath()).run();
     }

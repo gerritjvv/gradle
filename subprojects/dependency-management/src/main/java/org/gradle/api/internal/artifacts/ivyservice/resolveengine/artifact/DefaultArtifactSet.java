@@ -34,7 +34,7 @@ import org.gradle.internal.component.model.ComponentArtifactMetadata;
 import org.gradle.internal.component.model.IvyArtifactName;
 import org.gradle.internal.component.model.ModuleSource;
 import org.gradle.internal.component.model.VariantMetadata;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.resolve.resolver.ArtifactResolver;
 import org.gradle.internal.resolve.result.DefaultBuildableArtifactResolveResult;
 

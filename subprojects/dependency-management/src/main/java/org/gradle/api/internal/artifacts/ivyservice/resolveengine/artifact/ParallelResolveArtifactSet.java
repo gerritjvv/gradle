@@ -18,7 +18,7 @@ package org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact;
 
 import org.gradle.api.Action;
 import org.gradle.api.tasks.TaskDependency;
-import org.gradle.internal.operations.BuildOperationProcessor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.operations.BuildOperationQueue;
 import org.gradle.internal.operations.RunnableBuildOperation;
 
@@ -31,11 +31,11 @@ import java.util.Collection;
  */
 public class ParallelResolveArtifactSet implements ResolvedArtifactSet {
     private final ResolvedArtifactSet delegate;
-    private final BuildOperationProcessor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
 
-    public ParallelResolveArtifactSet(ResolvedArtifactSet delegate, BuildOperationProcessor buildOperationProcessor) {
+    public ParallelResolveArtifactSet(ResolvedArtifactSet delegate, BuildOperationExecutor buildOperationExecutor) {
         this.delegate = delegate;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
     }
 
     @Override
@@ -54,7 +54,7 @@ public class ParallelResolveArtifactSet implements ResolvedArtifactSet {
         final ResolvedArtifactSet snapshot = delegate instanceof DynamicResolvedArtifactSet ? ((DynamicResolvedArtifactSet) delegate).snapshot() : delegate;
 
         // Execute all 'prepare' calls in parallel
-        buildOperationProcessor.run(new Action<BuildOperationQueue<RunnableBuildOperation>>() {
+        buildOperationExecutor.runAll(new Action<BuildOperationQueue<RunnableBuildOperation>>() {
             @Override
             public void execute(BuildOperationQueue<RunnableBuildOperation> buildOperationQueue) {
                 snapshot.addPrepareActions(buildOperationQueue, visitor);

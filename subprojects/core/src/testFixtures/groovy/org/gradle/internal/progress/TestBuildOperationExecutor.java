@@ -18,8 +18,14 @@ package org.gradle.internal.progress;
 
 import org.gradle.api.Action;
 import org.gradle.api.Nullable;
-import org.gradle.api.Transformer;
+import org.gradle.internal.operations.BuildOperation;
 import org.gradle.internal.operations.BuildOperationContext;
+import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationQueue;
+import org.gradle.internal.operations.BuildOperationState;
+import org.gradle.internal.operations.BuildOperationWorker;
+import org.gradle.internal.operations.CallableBuildOperation;
+import org.gradle.internal.operations.RunnableBuildOperation;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -29,45 +35,39 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Simply execute given operations, does not support current/parent operations.
  */
 public class TestBuildOperationExecutor implements BuildOperationExecutor {
-    public final List<BuildOperationDetails> operations = new CopyOnWriteArrayList<BuildOperationDetails>();
+    public final List<BuildOperationDescriptor> operations = new CopyOnWriteArrayList<BuildOperationDescriptor>();
+    private BuildOperationState current = new BuildOperationState(BuildOperationDescriptor.displayName("current"), null, 0);
 
     @Override
-    public Operation getCurrentOperation() {
-        return new Operation() {
-            @Override
-            public Object getId() {
-                return "current";
-            }
-
-            @Override
-            public Object getParentId() {
-                return "parent";
-            }
-        };
+    public BuildOperationState getCurrentOperation() {
+        return current;
     }
 
     @Override
-    public <T> T run(String displayName, Transformer<T, ? super BuildOperationContext> factory) {
-        operations.add(BuildOperationDetails.displayName(displayName).build());
-        return factory.transform(new TestBuildOperationContext());
+    public void setRootOperationOfCurrentThread(BuildOperationState buildOperationState) {
+        current = buildOperationState;
     }
 
     @Override
-    public <T> T run(BuildOperationDetails operationDetails, Transformer<T, ? super BuildOperationContext> factory) {
-        operations.add(operationDetails);
-        return factory.transform(new TestBuildOperationContext());
+    public void run(RunnableBuildOperation buildOperation) {
+        operations.add(buildOperation.description().build());
+        buildOperation.run(new TestBuildOperationContext());
     }
 
     @Override
-    public void run(String displayName, Action<? super BuildOperationContext> action) {
-        operations.add(BuildOperationDetails.displayName(displayName).build());
-        action.execute(new TestBuildOperationContext());
+    public <T> T call(CallableBuildOperation<T> buildOperation) {
+        operations.add(buildOperation.description().build());
+        return buildOperation.call(new TestBuildOperationContext());
     }
 
     @Override
-    public void run(BuildOperationDetails operationDetails, Action<? super BuildOperationContext> action) {
-        operations.add(operationDetails);
-        action.execute(new TestBuildOperationContext());
+    public <O extends RunnableBuildOperation> void runAll(Action<BuildOperationQueue<O>> schedulingAction) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public <O extends BuildOperation> void runAll(BuildOperationWorker<O> worker, Action<BuildOperationQueue<O>> schedulingAction) {
+        throw new UnsupportedOperationException();
     }
 
     private static class TestBuildOperationContext implements BuildOperationContext {

@@ -18,7 +18,7 @@ package org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact
 
 import org.gradle.api.internal.artifacts.transform.VariantSelector
 import org.gradle.api.specs.Spec
-import org.gradle.internal.operations.BuildOperationProcessor
+import org.gradle.internal.operations.BuildOperationExecutor
 import spock.lang.Specification
 
 class DefaultVisitedArtifactResultsTest extends Specification {
@@ -35,7 +35,7 @@ class DefaultVisitedArtifactResultsTest extends Specification {
         artifacts1.select(spec, selector) >> variant1Artifacts
         artifacts2.select(spec, selector) >> variant2Artifacts
 
-        def results = new DefaultVisitedArtifactResults([1L: artifacts1, 2L: artifacts2], [1L, 2L] as Set, Stub(BuildOperationProcessor))
+        def results = new DefaultVisitedArtifactResults([1L: artifacts1, 2L: artifacts2], [1L, 2L] as Set, Stub(BuildOperationExecutor))
         def selected = results.select(spec, selector)
 
         expect:

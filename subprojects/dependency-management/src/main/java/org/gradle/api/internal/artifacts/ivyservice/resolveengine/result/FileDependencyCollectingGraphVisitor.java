@@ -32,7 +32,7 @@ import org.gradle.internal.component.local.model.LocalFileDependencyMetadata;
 import org.gradle.internal.component.model.ConfigurationMetadata;
 import org.gradle.internal.id.IdGenerator;
 import org.gradle.internal.id.LongIdGenerator;
-import org.gradle.internal.operations.BuildOperationProcessor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 
 import java.util.Map;
 import java.util.Set;
@@ -40,13 +40,13 @@ import java.util.Set;
 public class FileDependencyCollectingGraphVisitor implements DependencyGraphVisitor {
     private final IdGenerator<Long> idGenerator = new LongIdGenerator();
     private final ImmutableAttributesFactory immutableAttributesFactory;
-    private final BuildOperationProcessor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
     private final SetMultimap<Long, FileDependencyArtifactSet> filesByNodeId = LinkedHashMultimap.create();
     private Map<FileCollectionDependency, FileDependencyArtifactSet> rootFiles;
 
-    public FileDependencyCollectingGraphVisitor(ImmutableAttributesFactory immutableAttributesFactory, BuildOperationProcessor buildOperationProcessor) {
+    public FileDependencyCollectingGraphVisitor(ImmutableAttributesFactory immutableAttributesFactory, BuildOperationExecutor buildOperationExecutor) {
         this.immutableAttributesFactory = immutableAttributesFactory;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
     }
 
     @Override
@@ -91,6 +91,6 @@ public class FileDependencyCollectingGraphVisitor implements DependencyGraphVisi
     }
 
     public VisitedFileDependencyResults complete() {
-        return new DefaultVisitedFileDependencyResults(filesByNodeId, rootFiles, buildOperationProcessor);
+        return new DefaultVisitedFileDependencyResults(filesByNodeId, rootFiles, buildOperationExecutor);
     }
 }

@@ -16,6 +16,7 @@
 
 package org.gradle.internal.operations;
 
+import org.gradle.api.Nullable;
 import org.gradle.internal.concurrent.StoppableExecutor;
 import org.gradle.internal.work.WorkerLeaseService;
 
@@ -27,7 +28,7 @@ public class DefaultBuildOperationQueueFactory implements BuildOperationQueueFac
     }
 
     @Override
-    public <T extends BuildOperation> BuildOperationQueue<T> create(StoppableExecutor executor, BuildOperationWorker<T> worker) {
-        return new DefaultBuildOperationQueue<T>(workerLeaseService, executor, worker);
+    public <T extends BuildOperation> BuildOperationQueue<T> create(StoppableExecutor executor, BuildOperationWorker<T> worker, @Nullable BuildOperationState parent) {
+        return new DefaultBuildOperationQueue<T>(workerLeaseService, executor, worker, parent);
     }
 }

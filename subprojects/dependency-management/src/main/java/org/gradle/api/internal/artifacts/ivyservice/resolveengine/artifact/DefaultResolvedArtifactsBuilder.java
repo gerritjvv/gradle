@@ -25,7 +25,7 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.Dependen
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphNode;
 import org.gradle.internal.component.local.model.LocalConfigurationMetadata;
 import org.gradle.internal.component.model.ConfigurationMetadata;
-import org.gradle.internal.operations.BuildOperationProcessor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 
 import java.util.HashSet;
 import java.util.List;
@@ -44,12 +44,12 @@ public class DefaultResolvedArtifactsBuilder implements DependencyArtifactsVisit
     private final Map<Long, ArtifactSet> artifactSets = newLinkedHashMap();
     private final Set<Long> buildableArtifactSets = new HashSet<Long>();
     private final ResolutionStrategy.SortOrder sortOrder;
-    private final BuildOperationProcessor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
 
-    public DefaultResolvedArtifactsBuilder(boolean buildProjectDependencies, ResolutionStrategy.SortOrder sortOrder, BuildOperationProcessor buildOperationProcessor) {
+    public DefaultResolvedArtifactsBuilder(boolean buildProjectDependencies, ResolutionStrategy.SortOrder sortOrder, BuildOperationExecutor buildOperationExecutor) {
         this.buildProjectDependencies = buildProjectDependencies;
         this.sortOrder = sortOrder;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
     }
 
     // TODO:DAZ Split the 'consumer-first' implementation out
@@ -146,6 +146,6 @@ public class DefaultResolvedArtifactsBuilder implements DependencyArtifactsVisit
             }
         }
 
-        return new DefaultVisitedArtifactResults(artifactsById, buildableArtifactSets, buildOperationProcessor);
+        return new DefaultVisitedArtifactResults(artifactsById, buildableArtifactSets, buildOperationExecutor);
     }
 }

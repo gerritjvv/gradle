@@ -20,14 +20,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import org.gradle.api.Buildable;
 import org.gradle.api.artifacts.ResolvedArtifact;
-import org.gradle.api.artifacts.component.ComponentArtifactIdentifier;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.internal.attributes.AttributeContainerInternal;
 import org.gradle.api.tasks.TaskDependency;
+import org.gradle.internal.operations.BuildOperationContext;
 import org.gradle.internal.operations.BuildOperationQueue;
-import org.gradle.internal.operations.DescribableBuildOperation;
 import org.gradle.internal.operations.RunnableBuildOperation;
+import org.gradle.internal.progress.BuildOperationDescriptor;
 
 import java.util.Collection;
 import java.util.Map;
@@ -57,7 +57,7 @@ class ArtifactBackedResolvedVariant implements ResolvedVariant, ArtifactFailures
         if (visitor.shouldPerformPreemptiveDownload()) {
             for (ResolvedArtifact artifact : artifacts) {
                 if (!isFromIncludedBuild(artifact)) {
-                    actions.add(new DownloadArtifactFile(artifact, this));
+                    actions.add(new DownloadArtifactFileBuildOperation(artifact, this));
                 }
             }
         }
@@ -129,7 +129,7 @@ class ArtifactBackedResolvedVariant implements ResolvedVariant, ArtifactFailures
         @Override
         public void addPrepareActions(BuildOperationQueue<RunnableBuildOperation> actions, final ArtifactVisitor visitor) {
             if (visitor.shouldPerformPreemptiveDownload() && !isFromIncludedBuild(artifact))  {
-                actions.add(new DownloadArtifactFile(artifact, this));
+                actions.add(new DownloadArtifactFileBuildOperation(artifact, this));
             }
         }
 
@@ -153,17 +153,17 @@ class ArtifactBackedResolvedVariant implements ResolvedVariant, ArtifactFailures
         }
     }
 
-    private static class DownloadArtifactFile implements RunnableBuildOperation, DescribableBuildOperation<ComponentArtifactIdentifier> {
+    private static class DownloadArtifactFileBuildOperation implements RunnableBuildOperation {
         private final ResolvedArtifact artifact;
         private final ArtifactFailuresCollector artifactFailures;
 
-        DownloadArtifactFile(ResolvedArtifact artifact, ArtifactFailuresCollector artifactFailures) {
+        DownloadArtifactFileBuildOperation(ResolvedArtifact artifact, ArtifactFailuresCollector artifactFailures) {
             this.artifact = artifact;
             this.artifactFailures = artifactFailures;
         }
 
         @Override
-        public void run() {
+        public void run(BuildOperationContext context) {
             try {
                 artifact.getFile();
             } catch (Throwable t) {
@@ -172,18 +172,8 @@ class ArtifactBackedResolvedVariant implements ResolvedVariant, ArtifactFailures
         }
 
         @Override
-        public String getDescription() {
-            return "Resolve artifact " + artifact;
-        }
-
-        @Override
-        public ComponentArtifactIdentifier getOperationDescriptor() {
-            return artifact.getId();
-        }
-
-        @Override
-        public String getProgressDisplayName() {
-            return null;
+        public BuildOperationDescriptor.Builder description() {
+            return BuildOperationDescriptor.displayName("Resolve artifact " + artifact).operationDescriptor(artifact.getId());
         }
     }
 

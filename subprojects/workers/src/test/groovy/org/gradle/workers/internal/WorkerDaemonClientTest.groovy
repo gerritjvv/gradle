@@ -16,18 +16,16 @@
 
 package org.gradle.workers.internal
 
-import org.gradle.api.Transformer
 import org.gradle.internal.operations.BuildOperationContext
-import org.gradle.internal.progress.BuildOperationDetails
-import org.gradle.internal.progress.BuildOperationExecutor
+import org.gradle.internal.operations.BuildOperationExecutor
+import org.gradle.internal.operations.CallableBuildOperation
 import spock.lang.Specification
 
-import static org.gradle.internal.work.WorkerLeaseRegistry.WorkerLeaseCompletion
 import static org.gradle.internal.work.WorkerLeaseRegistry.WorkerLease
+import static org.gradle.internal.work.WorkerLeaseRegistry.WorkerLeaseCompletion
 
 class WorkerDaemonClientTest extends Specification {
     BuildOperationExecutor buildOperationExecutor = Mock(BuildOperationExecutor)
-    BuildOperationExecutor.Operation buildOperation = Mock(BuildOperationExecutor.Operation)
     WorkerLease workerOperation = Mock(WorkerLease)
     WorkerLeaseCompletion completion = Mock(WorkerLeaseCompletion)
 
@@ -44,10 +42,10 @@ class WorkerDaemonClientTest extends Specification {
         client = client(workerDaemonProcess)
 
         when:
-        client.execute(Stub(WorkSpec), workerOperation, buildOperation)
+        client.execute(Stub(WorkSpec), workerOperation)
 
         then:
-        1 * buildOperationExecutor.run(_ as BuildOperationDetails, _ as Transformer) >> { args -> args[1].transform(Mock(BuildOperationContext)) }
+        1 * buildOperationExecutor.call(_ as CallableBuildOperation) >> { args -> args[0].call(Mock(BuildOperationContext)) }
 
         and:
         1 * workerDaemonProcess.execute(_)
@@ -59,10 +57,10 @@ class WorkerDaemonClientTest extends Specification {
         assert client.uses == 0
 
         when:
-        5.times { client.execute(Stub(WorkSpec), workerOperation, buildOperation) }
+        5.times { client.execute(Stub(WorkSpec), workerOperation) }
 
         then:
-        5 * buildOperationExecutor.run(_ as BuildOperationDetails, _ as Transformer) >> { args -> args[1].transform(Mock(BuildOperationContext)) }
+        5 * buildOperationExecutor.call(_ as CallableBuildOperation) >> { args -> args[0].call(Mock(BuildOperationContext)) }
 
         then:
         client.uses == 5
@@ -76,7 +74,7 @@ class WorkerDaemonClientTest extends Specification {
         client = client()
 
         when:
-        client.execute(Stub(WorkSpec), operation, buildOperation)
+        client.execute(Stub(WorkSpec), operation)
 
         then:
         1 * operation.startChild() >> completion
@@ -92,11 +90,11 @@ class WorkerDaemonClientTest extends Specification {
         client = client(workerDaemonProcess)
 
         when:
-        client.execute(Stub(WorkSpec), operation, buildOperation)
+        client.execute(Stub(WorkSpec), operation)
 
         then:
         1 * operation.startChild() >> completion
-        1 * buildOperationExecutor.run(_ as BuildOperationDetails, _ as Transformer) >> { args -> args[1].transform(Mock(BuildOperationContext)) }
+        1 * buildOperationExecutor.call(_ as CallableBuildOperation) >> { args -> args[0].call(Mock(BuildOperationContext)) }
 
         then:
         thrown(RuntimeException)

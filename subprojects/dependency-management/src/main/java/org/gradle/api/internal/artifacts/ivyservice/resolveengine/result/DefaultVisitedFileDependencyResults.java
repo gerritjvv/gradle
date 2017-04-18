@@ -31,7 +31,7 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.Selec
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.VisitedFileDependencyResults;
 import org.gradle.api.internal.artifacts.transform.VariantSelector;
 import org.gradle.api.specs.Spec;
-import org.gradle.internal.operations.BuildOperationProcessor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,12 +41,12 @@ import java.util.Set;
 public class DefaultVisitedFileDependencyResults implements VisitedFileDependencyResults {
     private final SetMultimap<Long, FileDependencyArtifactSet> filesByNodeId;
     private final Map<FileCollectionDependency, FileDependencyArtifactSet> rootFiles;
-    private final BuildOperationProcessor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
 
-    public DefaultVisitedFileDependencyResults(SetMultimap<Long, FileDependencyArtifactSet> filesByNodeId, Map<FileCollectionDependency, FileDependencyArtifactSet> rootFiles, BuildOperationProcessor buildOperationProcessor) {
+    public DefaultVisitedFileDependencyResults(SetMultimap<Long, FileDependencyArtifactSet> filesByNodeId, Map<FileCollectionDependency, FileDependencyArtifactSet> rootFiles, BuildOperationExecutor buildOperationExecutor) {
         this.filesByNodeId = filesByNodeId;
         this.rootFiles = rootFiles;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
     }
 
     @Override
@@ -65,7 +65,7 @@ public class DefaultVisitedFileDependencyResults implements VisitedFileDependenc
             allArtifacts.addAll(selectedArtifactsForConfiguration);
         }
 
-        ResolvedArtifactSet allFiles = new ParallelResolveArtifactSet(CompositeDynamicArtifactSet.create(allArtifacts), buildOperationProcessor);
+        ResolvedArtifactSet allFiles = new ParallelResolveArtifactSet(CompositeDynamicArtifactSet.create(allArtifacts), buildOperationExecutor);
 
         ImmutableMap.Builder<FileCollectionDependency, ResolvedArtifactSet> rootFilesBuilder = ImmutableMap.builder();
         for (Map.Entry<FileCollectionDependency, FileDependencyArtifactSet> entry : rootFiles.entrySet()) {

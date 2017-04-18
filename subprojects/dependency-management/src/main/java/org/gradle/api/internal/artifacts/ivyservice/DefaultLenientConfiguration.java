@@ -16,7 +16,6 @@
 package org.gradle.api.internal.artifacts.ivyservice;
 
 import com.google.common.collect.Sets;
-import org.gradle.api.Action;
 import org.gradle.api.Nullable;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.FileCollectionDependency;
@@ -50,8 +49,9 @@ import org.gradle.api.specs.Specs;
 import org.gradle.internal.graph.CachingDirectedGraphWalker;
 import org.gradle.internal.graph.DirectedGraphWithEdgeValues;
 import org.gradle.internal.operations.BuildOperationContext;
-import org.gradle.internal.progress.BuildOperationDetails;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.operations.RunnableBuildOperation;
+import org.gradle.internal.progress.BuildOperationDescriptor;
 import org.gradle.util.CollectionUtils;
 
 import java.io.File;
@@ -89,10 +89,10 @@ public class DefaultLenientConfiguration implements LenientConfiguration, Visite
         this.buildOperationExecutor = buildOperationExecutor;
     }
 
-    private BuildOperationDetails computeResolveAllBuildOperationDetails(AttributeContainer requestedAttributes) {
+    private BuildOperationDescriptor.Builder computeResolveAllBuildOperationDetails(AttributeContainer requestedAttributes) {
         String displayName = "Resolve artifacts "
             + (requestedAttributes == null || requestedAttributes.isEmpty() ? "of " : "view of ") + configuration.getPath();
-        return BuildOperationDetails.displayName(displayName).operationDescriptor(requestedAttributes).build();
+        return BuildOperationDescriptor.displayName(displayName).operationDescriptor(requestedAttributes);
     }
 
     private SelectedArtifactResults getSelectedArtifacts() {
@@ -253,11 +253,17 @@ public class DefaultLenientConfiguration implements LenientConfiguration, Visite
         return files;
     }
 
-    private void visitArtifactsWithBuildOperation(final Spec<? super Dependency> dependencySpec, final SelectedArtifactResults artifactResults, final SelectedFileDependencyResults fileDependencyResults, final ArtifactVisitor visitor, @Nullable AttributeContainer requestedAttributes) {
-        buildOperationExecutor.run(computeResolveAllBuildOperationDetails(requestedAttributes), new Action<BuildOperationContext>() {
+    private void visitArtifactsWithBuildOperation(final Spec<? super Dependency> dependencySpec, final SelectedArtifactResults artifactResults, final SelectedFileDependencyResults fileDependencyResults, final ArtifactVisitor visitor, @Nullable final AttributeContainer requestedAttributes) {
+        buildOperationExecutor.run(new RunnableBuildOperation() {
             @Override
-            public void execute(BuildOperationContext buildOperationContext) {
+            public void run(BuildOperationContext context) {
                 visitArtifacts(dependencySpec, artifactResults, fileDependencyResults, visitor);
+
+            }
+
+            @Override
+            public BuildOperationDescriptor.Builder description() {
+                return computeResolveAllBuildOperationDetails(requestedAttributes);
             }
         });
     }

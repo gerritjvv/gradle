@@ -22,7 +22,7 @@ import org.gradle.internal.Factory
 import org.gradle.internal.concurrent.ExecutorFactory
 import org.gradle.internal.concurrent.StoppableExecutor
 import org.gradle.internal.work.WorkerLeaseRegistry
-import org.gradle.internal.progress.BuildOperationExecutor
+import org.gradle.internal.operations.BuildOperationExecutor
 import org.gradle.internal.work.AsyncWorkTracker
 import org.gradle.util.RedirectStdOutAndErr
 import org.gradle.util.UsesNativeServices
@@ -136,7 +136,7 @@ class DefaultWorkerExecutorTest extends Specification {
 
         then:
         1 * workerDaemonFactory.getWorker(_, _, _) >> worker
-        1 * worker.execute(_, _, _) >> { spec, workOperation, buildOperation ->
+        1 * worker.execute(_, _) >> { spec, workOperation, buildOperation ->
             assert spec.implementationClass == TestRunnable
             return new DefaultWorkResult(true, null)
         }
@@ -158,7 +158,7 @@ class DefaultWorkerExecutorTest extends Specification {
 
         then:
         1 * inProcessWorkerFactory.getWorker(_, _, _) >> worker
-        1 * worker.execute(_, _, _) >> { spec, workOperation, buildOperation ->
+        1 * worker.execute(_, _) >> { spec, workOperation, buildOperation ->
             assert spec.implementationClass == TestRunnable
             return new DefaultWorkResult(true, null)
         }

@@ -16,44 +16,44 @@
 
 package org.gradle.internal.progress
 
-import org.gradle.api.Action
-import org.gradle.api.Transformer
+import org.gradle.internal.concurrent.ExecutorFactory
 import org.gradle.internal.concurrent.GradleThread
 import org.gradle.internal.logging.progress.ProgressLogger
 import org.gradle.internal.logging.progress.ProgressLoggerFactory
 import org.gradle.internal.operations.BuildOperationContext
-import org.gradle.internal.operations.DefaultBuildOperationProcessor
-import org.gradle.internal.operations.DefaultBuildOperationQueueFactory
+import org.gradle.internal.operations.BuildOperationQueueFactory
+import org.gradle.internal.operations.CallableBuildOperation
 import org.gradle.internal.operations.RunnableBuildOperation
-import org.gradle.internal.resources.DefaultResourceLockCoordinationService
 import org.gradle.internal.time.TimeProvider
-import org.gradle.internal.work.DefaultWorkerLeaseService
 import org.gradle.test.fixtures.concurrent.ConcurrentSpec
+
+import static org.gradle.internal.progress.BuildOperationDescriptor.displayName
 
 class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
     def listener = Mock(BuildOperationListener)
     def timeProvider = Mock(TimeProvider)
     def progressLoggerFactory = Mock(ProgressLoggerFactory)
-    def operationExecutor = new DefaultBuildOperationExecutor(listener, timeProvider, progressLoggerFactory)
+    def operationExecutor = new DefaultBuildOperationExecutor(listener, timeProvider, progressLoggerFactory, Mock(BuildOperationQueueFactory), Mock(ExecutorFactory), 1)
 
     def "fires events when operation starts and finishes successfully"() {
         setup:
         GradleThread.setManaged()
 
         and:
-        def action = Mock(Transformer)
+        def buildOperation = Mock(CallableBuildOperation)
         def progressLogger = Mock(ProgressLogger)
         def descriptor = "some-thing"
-        def operationDetails = BuildOperationDetails.displayName("<some-operation>").name("<op>").progressDisplayName("<some-op>").operationDescriptor(descriptor).build()
+        def operationDetailsBuilder = displayName("<some-operation>").name("<op>").progressDisplayName("<some-op>").operationDescriptor(descriptor)
         def id
 
         when:
-        def result = operationExecutor.run(operationDetails, action)
+        def result = operationExecutor.call(buildOperation)
 
         then:
         result == "result"
 
         then:
+        1 * buildOperation.description() >> operationDetailsBuilder
         1 * timeProvider.currentTime >> 123L
         1 * listener.started(_, _) >> { BuildOperationInternal operation, OperationStartEvent start ->
             id = operation.id
@@ -72,7 +72,7 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         1 * progressLogger.started()
 
         then:
-        1 * action.transform(_) >> "result"
+        1 * buildOperation.call(_) >> "result"
 
         then:
         1 * progressLogger.completed()
@@ -99,20 +99,21 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         GradleThread.setManaged()
 
         and:
-        def action = Mock(Transformer)
-        def operationDetails = BuildOperationDetails.displayName("<some-operation>").progressDisplayName("<some-op>").build()
+        def buildOperation = Mock(RunnableBuildOperation)
+        def operationDescriptionBuilder = displayName("<some-operation>").progressDisplayName("<some-op>")
         def failure = new RuntimeException()
         def progressLogger = Mock(ProgressLogger)
         def id
 
         when:
-        operationExecutor.run(operationDetails, action)
+        operationExecutor.run(buildOperation)
 
         then:
         def e = thrown(RuntimeException)
         e == failure
 
         then:
+        1 * buildOperation.description() >> operationDescriptionBuilder
         1 * timeProvider.currentTime >> 123L
         1 * listener.started(_, _) >> { BuildOperationInternal operation, OperationStartEvent start ->
             assert operation.id != null
@@ -129,7 +130,7 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         1 * progressLogger.started()
 
         then:
-        1 * action.transform(_) >> { throw failure }
+        1 * buildOperation.run(_) >> { throw failure }
 
         then:
         1 * progressLogger.completed()
@@ -152,14 +153,14 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         GradleThread.setManaged()
 
         and:
-        def action = Mock(Transformer)
+        def buildOperation = Mock(RunnableBuildOperation)
         def failure = new RuntimeException()
 
         when:
-        operationExecutor.run("<some-operation>", action)
+        operationExecutor.run(buildOperation)
 
         then:
-        1 * action.transform(_) >> { BuildOperationContext context -> context.failed(failure) }
+        1 * buildOperation.run(_) >> { BuildOperationContext context -> context.failed(failure) }
 
         then:
         1 * listener.finished(_, _) >> { BuildOperationInternal operation, OperationResult opResult ->
@@ -175,14 +176,14 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         GradleThread.setManaged()
 
         and:
-        def action = Mock(Transformer)
+        def buildOperation = Mock(RunnableBuildOperation)
         def result = "SomeResult"
 
         when:
-        operationExecutor.run("<some-operation>", action)
+        operationExecutor.run(buildOperation)
 
         then:
-        1 * action.transform(_) >> { BuildOperationContext context -> context.result = result }
+        1 * buildOperation.run(_) >> { BuildOperationContext context -> context.result = result }
 
         then:
         1 * listener.finished(_, _) >> { BuildOperationInternal operation, OperationResult opResult ->
@@ -194,16 +195,16 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
     }
 
     def "does not generate progress logging when operation has no progress display name"() {
-        def action = Mock(Transformer)
+        def buildOperation = Mock(CallableBuildOperation)
 
         when:
-        def result = operationExecutor.run("<some-operation>", action)
+        def result = operationExecutor.call(buildOperation)
 
         then:
         result == "result"
 
         then:
-        1 * action.transform(_) >> "result"
+        1 * buildOperation.call(_) >> "result"
         0 * progressLoggerFactory._
     }
 
@@ -215,17 +216,17 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         async {
             start {
                 GradleThread.setManaged()
-                operationExecutor.run("<thread-1>", {
+                operationExecutor.run(runnableBuildOperation("<thread-1>") {
                     instant.action1Started
                     thread.blockUntil.action2Started
-                } as Action)
+                })
             }
             thread.blockUntil.action1Started
             GradleThread.setManaged()
-            operationExecutor.run("<thread-2>", {
+            operationExecutor.run(runnableBuildOperation("<thread-2>") {
                 instant.action2Started
                 thread.blockUntil.action1Finished
-            } as Action)
+            })
         }
 
         then:
@@ -262,27 +263,27 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         def id2
 
         when:
-        operationExecutor.run("<main>", {
+        operationExecutor.run(runnableBuildOperation("<main>") {
             def parentOp = operationExecutor.currentOperation
-            parentId = parentOp.id
+            parentId = parentOp.description.id
             async {
                 start {
-                    def details = BuildOperationDetails.displayName("<thread-1>").parent(parentOp).build()
-                    operationExecutor.run(details, {
+                    operationExecutor.setRootOperationOfCurrentThread(parentOp)
+                    operationExecutor.run(runnableBuildOperation("<thread-1>") {
                         instant.action1Started
                         thread.blockUntil.action2Started
-                    } as Action)
+                    })
                 }
                 start {
                     thread.blockUntil.action1Started
-                    def details = BuildOperationDetails.displayName("<thread-2>").parent(parentOp).build()
-                    operationExecutor.run(details, {
+                    operationExecutor.setRootOperationOfCurrentThread(parentOp)
+                    operationExecutor.run(runnableBuildOperation("<thread-2>") {
                         instant.action2Started
                         thread.blockUntil.action1Finished
-                    } as Action)
+                    })
                 }
             }
-        } as Action)
+        })
 
         then:
         1 * listener.started(_, _) >> { BuildOperationInternal operation, OperationStartEvent start ->
@@ -324,12 +325,12 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         def operation
 
         given:
-        operationExecutor.run("parent", {
+        operationExecutor.run(runnableBuildOperation("parent") {
             operation = operationExecutor.currentOperation
-        } as Action)
+        })
 
         when:
-        operationExecutor.run(BuildOperationDetails.displayName("child").parent(operation).build(), {} as Action)
+        operationExecutor.execute(runnableBuildOperation("child") {}, operation)
 
         then:
         def e = thrown(IllegalStateException)
@@ -339,16 +340,16 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
     def "child fails when parent completes while child is still running"() {
         when:
         async {
-            operationExecutor.run("parent", {
+            operationExecutor.run(runnableBuildOperation("parent") {
                 def operation = operationExecutor.currentOperation
                 start {
-                    operationExecutor.run(BuildOperationDetails.displayName("child").parent(operation).build(), {
+                    operationExecutor.execute(runnableBuildOperation("child") {
                         instant.childStarted
                         thread.blockUntil.parentCompleted
-                    } as Action)
+                    }, operation)
                 }
                 thread.blockUntil.childStarted
-            } as Action)
+            })
             instant.parentCompleted
         }
 
@@ -358,38 +359,46 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
     }
 
     def "can query operation id from inside operation"() {
-        def action1 = Mock(Action)
-        def action2 = Mock(Action)
+        given:
+        GradleThread.setManaged()
+
+        def parentOperation = Mock(RunnableBuildOperation)
+        def childOperation = Mock(RunnableBuildOperation)
         def id
 
         when:
-        operationExecutor.run("<parent>", action1)
+        operationExecutor.run(parentOperation)
 
         then:
-        1 * action1.execute(_) >> {
-            assert operationExecutor.currentOperation.id != null
-            id = operationExecutor.currentOperation.id
-            operationExecutor.run("<child>", action2)
+        1 * parentOperation.run(_) >> {
+            assert operationExecutor.currentOperation.description.id != null
+            assert operationExecutor.currentOperation.description.parentId == null
+            id = operationExecutor.currentOperation.description.id
+            operationExecutor.run(childOperation)
         }
-        1 * action2.execute(_) >> {
-            assert operationExecutor.currentOperation.id != null
-            assert operationExecutor.currentOperation.id != id
+        1 * childOperation.run(_) >> {
+            assert operationExecutor.currentOperation.description.id != null
+            assert operationExecutor.currentOperation.description.id != id
+            assert operationExecutor.currentOperation.description.parentId == id
         }
+
+        cleanup:
+        GradleThread.setUnmanaged()
     }
 
     def "cannot query operation id when no operation running on current managed thread"() {
         when:
         async {
             start {
-                operationExecutor.run("operation", {
+                operationExecutor.run(runnableBuildOperation("operation") {
                     instant.operationRunning
                     thread.blockUntil.queried
-                } as Action)
+                })
             }
             thread.blockUntil.operationRunning
             GradleThread.setManaged()
             try {
-                operationExecutor.currentOperation
+                operationExecutor.currentOperation.description
             } finally {
                 instant.queried
                 GradleThread.setUnmanaged()
@@ -401,12 +410,12 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         e.message == "No operation is currently running."
     }
 
-    def "cannot query current operation when no operation running on current unmanaged thread"() {
+    def "cannot query current operation description when no operation running on current unmanaged thread"() {
         when:
-        BuildOperationExecutor.Operation op
+        BuildOperationDescriptor op
         async {
             assert !GradleThread.managed
-            op = operationExecutor.currentOperation
+            op = operationExecutor.currentOperation.description
         }
 
         then:
@@ -419,11 +428,21 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         when:
         async {
             assert !GradleThread.managed
-            operationExecutor.run('outer', {
-                assert operationExecutor.currentOperation instanceof DefaultBuildOperationExecutor.OperationDetails
-                assert operationExecutor.currentOperation.parentId.id < 0
-                operationExecutor.run('inner', {} as Action)
-            } as Action)
+
+            operationExecutor.run(new RunnableBuildOperation() {
+                void run(BuildOperationContext outerContext) {
+                    assert operationExecutor.currentOperation.description != null
+                    assert operationExecutor.currentOperation.description.parentId < 0
+
+                    operationExecutor.run(new RunnableBuildOperation() {
+                        void run(BuildOperationContext innerContext) { }
+
+                        BuildOperationDescriptor.Builder description() { displayName('inner') }
+                    })
+                }
+
+                BuildOperationDescriptor.Builder description() { displayName('outer') }
+            })
         }
 
         then:
@@ -435,15 +454,15 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         GradleThread.setManaged()
 
         and:
-        def action1 = Mock(Transformer)
-        def action2 = Mock(Transformer)
-        def action3 = Mock(Transformer)
+        def operation1 = Mock(CallableBuildOperation)
+        def operation2 = Mock(CallableBuildOperation)
+        def operation3 = Mock(CallableBuildOperation)
         def parentId
         def child1Id
         def child2Id
 
         when:
-        def result = operationExecutor.run("<parent>", action1)
+        def result = operationExecutor.call(operation1)
 
         then:
         result == "result"
@@ -453,8 +472,8 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
             parentId = operation.id
             assert operation.parentId == null
         }
-        1 * action1.transform(_) >> {
-            return operationExecutor.run("<op-2>", action2)
+        1 * operation1.call(_) >> {
+            return operationExecutor.call(operation2)
         }
 
         and:
@@ -462,8 +481,8 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
             child1Id = operation.id
             assert operation.parentId == parentId
         }
-        1 * action2.transform(_) >> {
-            return operationExecutor.run("<op-3>", action3)
+        1 * operation2.call(_) >> {
+            return operationExecutor.call(operation3)
         }
 
         and:
@@ -471,7 +490,7 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
             child2Id = operation.id
             assert operation.parentId == child1Id
         }
-        1 * action3.transform(_) >> {
+        1 * operation3.call(_) >> {
             return "result"
         }
 
@@ -504,21 +523,21 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         async {
             start {
                 GradleThread.setManaged()
-                operationExecutor.run("<parent-1>", {
-                    operationExecutor.run("<child-1>", {
+                operationExecutor.run(runnableBuildOperation("<parent-1>") {
+                    operationExecutor.run(runnableBuildOperation("<child-1>") {
                         instant.child1Started
                         thread.blockUntil.child2Started
-                    } as Action)
-                } as Action)
+                    })
+                })
             }
             start {
                 GradleThread.setManaged()
-                operationExecutor.run("<parent-2>", {
-                    operationExecutor.run("<child-2>", {
+                operationExecutor.run(runnableBuildOperation("<parent-2>") {
+                    operationExecutor.run(runnableBuildOperation("<child-2>") {
                         instant.child2Started
                         thread.blockUntil.child1Started
-                    } as Action)
-                } as Action)
+                    })
+                })
             }
         }
 
@@ -556,15 +575,15 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         GradleThread.setManaged()
 
         and:
-        def action1 = Mock(Transformer)
-        def action2 = Mock(Transformer)
-        def action3 = Mock(Transformer)
+        def operation1 = Mock(CallableBuildOperation)
+        def operation2 = Mock(CallableBuildOperation)
+        def operation3 = Mock(CallableBuildOperation)
         def parentId
         def child1Id
         def child2Id
 
         when:
-        def result = operationExecutor.run("<parent>", action1)
+        def result = operationExecutor.call(operation1)
 
         then:
         result == "result"
@@ -573,13 +592,13 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
             parentId = operation.id
             assert operation.parentId == null
         }
-        1 * action1.transform(_) >> {
+        1 * operation1.call(_) >> {
             try {
-                operationExecutor.run("<child-1>", action2)
+                operationExecutor.call(operation2)
             } catch (RuntimeException) {
                 // Ignore
             }
-            return operationExecutor.run("<child-2>", action3)
+            return operationExecutor.call(operation3)
         }
 
         and:
@@ -587,7 +606,7 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
             child1Id = operation.id
             assert operation.parentId == parentId
         }
-        1 * action2.transform(_) >> { throw new RuntimeException() }
+        1 * operation2.call(_) >> { throw new RuntimeException() }
         1 * listener.finished(_, _) >> { BuildOperationInternal operation, OperationResult opResult ->
             assert operation.id == child1Id
         }
@@ -597,7 +616,7 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
             child2Id = operation.id
             assert operation.parentId == parentId
         }
-        1 * action3.transform(_) >> {
+        1 * operation3.call(_) >> {
             return "result"
         }
         1 * listener.finished(_, _) >> { BuildOperationInternal operation, OperationResult opResult ->
@@ -613,24 +632,16 @@ class DefaultBuildOperationExecutorTest extends ConcurrentSpec {
         GradleThread.setUnmanaged()
     }
 
-    def "can be used through BuildOperationProcessor on unmanaged threads"() {
-        given:
-        def maxWorkers = 2
-        def workerLeases = new DefaultWorkerLeaseService(new DefaultResourceLockCoordinationService(), true, maxWorkers)
-        def processor = new DefaultBuildOperationProcessor(operationExecutor, new DefaultBuildOperationQueueFactory(workerLeases), executorFactory, maxWorkers)
-        def operation = Mock(RunnableBuildOperation)
+    def runnableBuildOperation(String name, Closure cl) {
+        new RunnableBuildOperation() {
+            void run(BuildOperationContext context) {
+                cl.run()
+            }
 
-        when:
-        async {
-            processor.run({ queue ->
-                5.times { queue.add(operation) }
-            })
+            BuildOperationDescriptor.Builder description() {
+                return displayName(name)
+            }
         }
-
-        then:
-        5 * operation.run()
-
-        cleanup:
-        workerLeases?.stop()
     }
+
 }

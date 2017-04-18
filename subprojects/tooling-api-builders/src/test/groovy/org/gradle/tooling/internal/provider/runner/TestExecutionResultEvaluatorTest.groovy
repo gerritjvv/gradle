@@ -82,7 +82,7 @@ class TestExecutionResultEvaluatorTest extends Specification {
 
         testDescriptorInternal.getName() >> "someTest"
         testDescriptorInternal.getClassName() >> "acme.SomeTestClass"
-        testDescriptorInternal.getOwnerBuildOperationId() >> 1
+        testDescriptorInternal.getOwnerBuildOperationId() >> 1L
 
         def testResult = Mock(TestResult)
         1 * testResult.getTestCount() >> 1
@@ -90,7 +90,7 @@ class TestExecutionResultEvaluatorTest extends Specification {
 
         def testTask = Mock(TaskInternal)
         1 * testTask.getPath() >> ":someproject:someTestTask"
-        def buildOperation = new BuildOperationInternal(1, 2, "<task>", "<task>", new TaskOperationDescriptor(testTask))
+        def buildOperation = new BuildOperationInternal(1, 2, "<task>", "<task>",  "<task>", new TaskOperationDescriptor(testTask))
 
         when:
         evaluator.started(buildOperation, Mock(OperationStartEvent))

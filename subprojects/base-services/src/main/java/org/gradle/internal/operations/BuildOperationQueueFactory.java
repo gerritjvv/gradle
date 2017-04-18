@@ -16,8 +16,9 @@
 
 package org.gradle.internal.operations;
 
+import org.gradle.api.Nullable;
 import org.gradle.internal.concurrent.StoppableExecutor;
 
 public interface BuildOperationQueueFactory {
-    <T extends BuildOperation> BuildOperationQueue<T> create(StoppableExecutor executor, BuildOperationWorker<T> worker);
+    <T extends BuildOperation> BuildOperationQueue<T> create(StoppableExecutor executor, BuildOperationWorker<T> worker, @Nullable BuildOperationState parent);
 }

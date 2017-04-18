@@ -25,7 +25,7 @@ import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
 import org.gradle.api.tasks.TaskDependency;
 import org.gradle.internal.Factory;
 import org.gradle.internal.component.model.IvyArtifactName;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.util.JUnit4GroovyMockery;
 import org.jmock.Expectations;
 import org.jmock.Mockery;

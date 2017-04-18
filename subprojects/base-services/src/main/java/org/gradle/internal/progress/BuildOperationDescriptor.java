@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 the original author or authors.
+ * Copyright 2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +21,25 @@ import org.gradle.api.Nullable;
 /**
  * Meta-data about a build operation.
  */
-public class BuildOperationDetails {
-    private final BuildOperationExecutor.Operation parent;
+public class BuildOperationDescriptor {
+    private final Long id;
+    private final Long parentId;
     private final String displayName;
     private final String name;
     private final String progressDisplayName;
     private final Object operationDescriptor;
 
-    private BuildOperationDetails(BuildOperationExecutor.Operation parent, String name, String displayName, String progressDisplayName, Object operationDescriptor) {
-        this.parent = parent;
+    protected BuildOperationDescriptor(Long id, Long parentId, String name, String displayName, String progressDisplayName, Object operationDescriptor) {
+        this.id = id;
+        this.parentId = parentId;
         this.name = name;
         this.displayName = displayName;
         this.progressDisplayName = progressDisplayName;
         this.operationDescriptor = operationDescriptor;
+    }
+
+    public Long getId() {
+        return id;
     }
 
     /**
@@ -76,9 +82,10 @@ public class BuildOperationDetails {
      * The parent for the operation, if any. When null, the operation of the current thread is used.
      */
     @Nullable
-    public BuildOperationExecutor.Operation getParent() {
-        return parent;
+    public Long getParentId() {
+        return parentId;
     }
+
 
     public static Builder displayName(String displayName) {
         return new Builder(displayName);
@@ -87,9 +94,10 @@ public class BuildOperationDetails {
     public static class Builder {
         private final String displayName;
         private String name;
-        private BuildOperationExecutor.Operation parent;
         private String progressDisplayName;
         private Object operationDescriptor;
+        private Long id;
+        private Long parentId;
 
         private Builder(String displayName) {
             this.displayName = displayName;
@@ -111,13 +119,18 @@ public class BuildOperationDetails {
             return this;
         }
 
-        public Builder parent(BuildOperationExecutor.Operation parent) {
-            this.parent = parent;
+        public Builder parentId(Long parentId) {
+            this.parentId = parentId;
             return this;
         }
 
-        public BuildOperationDetails build() {
-            return new BuildOperationDetails(parent, name, displayName, progressDisplayName, operationDescriptor);
+        public Builder id(Long id) {
+            this.id = id;
+            return this;
+        }
+
+        public BuildOperationInternal build() {
+            return new BuildOperationInternal(id, parentId, name, displayName, progressDisplayName, operationDescriptor);
         }
     }
 }

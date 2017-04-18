@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.internal.artifacts.transform.VariantSelector;
 import org.gradle.api.specs.Spec;
-import org.gradle.internal.operations.BuildOperationProcessor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 
 import java.util.Map;
 import java.util.Set;
@@ -29,14 +29,14 @@ import static com.google.common.collect.Sets.newLinkedHashSet;
 import static org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ResolvedArtifactSet.EMPTY;
 
 public class DefaultVisitedArtifactResults implements VisitedArtifactsResults {
-    private final BuildOperationProcessor buildOperationProcessor;
+    private final BuildOperationExecutor buildOperationExecutor;
     private final Map<Long, ArtifactSet> artifactsById;
     private final Set<Long> buildableArtifacts;
 
-    public DefaultVisitedArtifactResults(Map<Long, ArtifactSet> artifactsById, Set<Long> buildableArtifacts, BuildOperationProcessor buildOperationProcessor) {
+    public DefaultVisitedArtifactResults(Map<Long, ArtifactSet> artifactsById, Set<Long> buildableArtifacts, BuildOperationExecutor buildOperationExecutor) {
         this.artifactsById = artifactsById;
         this.buildableArtifacts = buildableArtifacts;
-        this.buildOperationProcessor = buildOperationProcessor;
+        this.buildOperationExecutor = buildOperationExecutor;
     }
 
     @Override
@@ -60,7 +60,7 @@ public class DefaultVisitedArtifactResults implements VisitedArtifactsResults {
         }
 
         ResolvedArtifactSet composite = CompositeArtifactSet.of(allArtifactSets);
-        composite = new ParallelResolveArtifactSet(composite, buildOperationProcessor);
+        composite = new ParallelResolveArtifactSet(composite, buildOperationExecutor);
 
         return new DefaultSelectedArtifactResults(composite, resolvedArtifactsById.build());
     }

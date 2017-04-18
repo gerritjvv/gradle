@@ -45,7 +45,7 @@ import org.gradle.api.internal.attributes.AttributesSchemaInternal;
 import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
 import org.gradle.api.specs.Spec;
 import org.gradle.internal.component.model.DependencyMetadata;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.resolve.resolver.ArtifactResolver;
 import org.gradle.internal.resolve.resolver.ComponentMetaDataResolver;
 import org.gradle.internal.resolve.resolver.DependencyToComponentIdResolver;

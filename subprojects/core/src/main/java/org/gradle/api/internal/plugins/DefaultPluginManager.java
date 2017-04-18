@@ -32,8 +32,9 @@ import org.gradle.api.plugins.PluginInstantiationException;
 import org.gradle.api.plugins.UnknownPluginException;
 import org.gradle.internal.Cast;
 import org.gradle.internal.operations.BuildOperationContext;
-import org.gradle.internal.progress.BuildOperationDetails;
-import org.gradle.internal.progress.BuildOperationExecutor;
+import org.gradle.internal.operations.RunnableBuildOperation;
+import org.gradle.internal.progress.BuildOperationDescriptor;
+import org.gradle.internal.operations.BuildOperationExecutor;
 import org.gradle.internal.reflect.Instantiator;
 import org.gradle.internal.reflect.ObjectInstantiationException;
 import org.gradle.plugin.use.PluginId;
@@ -152,10 +153,15 @@ public class DefaultPluginManager implements PluginManagerInternal {
     }
 
     private void addPluginWithBuildOperation(final Runnable adder, final PluginImplementation<?> plugin, final String pluginId, final Class<?> pluginClass) {
-        buildOperationExecutor.run(computeApplyPluginBuildOperationDetails(plugin), new Action<BuildOperationContext>() {
+        buildOperationExecutor.run(new RunnableBuildOperation() {
             @Override
-            public void execute(BuildOperationContext buildOperationContext) {
+            public void run(BuildOperationContext context) {
                 addPlugin(adder, plugin, pluginId, pluginClass);
+            }
+
+            @Override
+            public BuildOperationDescriptor.Builder description() {
+                return computeApplyPluginBuildOperationDetails(plugin);
             }
         });
     }
@@ -182,7 +188,7 @@ public class DefaultPluginManager implements PluginManagerInternal {
         adder.run();
     }
 
-    private BuildOperationDetails computeApplyPluginBuildOperationDetails(PluginImplementation<?> pluginImplementation) {
+    private BuildOperationDescriptor.Builder computeApplyPluginBuildOperationDetails(PluginImplementation<?> pluginImplementation) {
         String identifier;
         if (pluginImplementation.getPluginId() != null) {
             identifier = pluginImplementation.getPluginId().toString();
@@ -190,7 +196,7 @@ public class DefaultPluginManager implements PluginManagerInternal {
             identifier = pluginImplementation.asClass().getName();
         }
         String name = "Apply plugin " + identifier;
-        return BuildOperationDetails.displayName(name + " to " + target.toString()).name(name).operationDescriptor(pluginImplementation).build();
+        return BuildOperationDescriptor.displayName(name + " to " + target.toString()).name(name).operationDescriptor(pluginImplementation);
     }
 
     private Plugin<?> producePluginInstance(Class<?> pluginClass) {
