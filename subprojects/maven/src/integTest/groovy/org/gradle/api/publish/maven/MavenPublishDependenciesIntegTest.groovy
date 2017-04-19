@@ -158,11 +158,15 @@ class MavenPublishDependenciesIntegTest extends AbstractIntegrationSpec {
 
         where:
         plugin         | gradleConfiguration  | mavenScope
-        'java'         | 'compile'            | 'runtime'
+        'java'         | 'compile'            | 'compile'
+        'java'         | 'runtime'            | 'compile'
         'java'         | 'implementation'     | 'runtime'
+        'java'         | 'runtimeOnly'        | 'runtime'
 
         'java-library' | 'api'                | 'compile'
         'java-library' | 'compile'            | 'compile'
+        'java-library' | 'runtime'            | 'compile'
+        'java-library' | 'runtimeOnly'        | 'runtime'
         'java-library' | 'implementation'     | 'runtime'
 
     }
